@@ -100,6 +100,29 @@ EOF
 
 # подключение дополнительной конфигурации
 $ cat >> CMakeLists.txt <<EOF
+
 include(CPackConfig.cmake)
 EOF
 ```
+
+# Изменение README.md
+![13!](https://github.com/user-attachments/assets/3038bd68-47a1-4b33-a50f-9cb860cade0b)
+
+# Фиксируем и коммитим
+![14](https://github.com/user-attachments/assets/a3daf5b2-8a58-459d-a692-89a4519f85f2)
+![15](https://github.com/user-attachments/assets/299a08c3-7905-4cdf-8be0-7e53f6366545)
+![16](https://github.com/user-attachments/assets/c2133ffe-8d81-41f7-aa8a-2fa2c0346b77)
+
+# Авторизация в travis
+![17](https://github.com/user-attachments/assets/62b8ceb3-fbed-421f-92ea-77a0b719f934)
+![18](https://github.com/user-attachments/assets/211b0b49-307a-45ed-8f90-438df99f6cc8)
+
+# Компилируем через CMake и создаем архим через CPack
+![19](https://github.com/user-attachments/assets/6df56c0f-05a2-4990-a34d-780af079cf95)
+
+# Сборка собранного файла
+![21](https://github.com/user-attachments/assets/d5a73a87-c98b-40b8-9a8e-ab784460f5a6)
+![20](https://github.com/user-attachments/assets/0901a4d3-15ab-46b8-ac5c-db91b12aa064)
+
+# Перемещение собранного файла и проверка его наличия
+![22](https://github.com/user-attachments/assets/31d87921-05a5-4e32-bb37-b0610cde661e)
