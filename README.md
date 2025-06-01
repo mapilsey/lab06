@@ -126,3 +126,195 @@ EOF
 
 # Перемещение собранного файла и проверка его наличия
 ![22](https://github.com/user-attachments/assets/31d87921-05a5-4e32-bb37-b0610cde661e)
+
+## Homework
+
+Текст файла `CPackConfig.cmake`:
+```sh
+$ cat > CPackConfig.cmake <<EOF
+include(InstallRequiredSystemLibraries)
+set(CPACK_PACKAGE_CONTACT ${GITHUB_EMAIL})
+set(CPACK_PACKAGE_VERSION_MAJOR \${SOLVER_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR \${SOLVER_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH \${SOLVER_VERSION_PATCH})
+set(CPACK_PACKAGE_VERSION_TWEAK \${SOLVER_VERSION_TWEAK})
+set(CPACK_PACKAGE_VERSION \${SOLVER_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_FILE \${CMAKE_CURRENT_SOURCE_DIR}/DESCRIPTION)
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "solver app")
+
+set(CPACK_RPM_PACKAGE_NAME "solver")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "solver")
+set(CPACK_RPM_CHANGELOG_FILE \${CMAKE_CURRENT_SOURCE_DIR}/CHANGELOG.md)
+set(CPACK_RPM_PACKAGE_RELEASE 1)
+
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "solver-\${SOLVER_VERSION}")
+set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+
+set(CPACK_DEBIAN_PACKAGE_NAME "solver")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "cmake >= 3.0")
+set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+
+if (CMAKE_INSTALL_PREFIX)
+    set(CPACK_OUTPUT_FILE_PREFIX \${CMAKE_INSTALL_PREFIX}/packages)
+else()
+    set(CPACK_OUTPUT_FILE_PREFIX \${CMAKE_BINARY_DIR}/packages)
+endif(CMAKE_INSTALL_PREFIX)
+
+include(CPack)
+EOF
+```
+CMakeLists.txt в корне репозитория:
+```sh
+$ cat CMakeLists.txt
+cmake_minimum_required(VERSION 3.4)
+
+set(CMAKE_CXX_STANDART 11)
+set(CMAKE_CXX_STANDART_REQUIRED ON)
+
+project(solver)
+
+set(SOLVER_VERSION_MAJOR 0)
+set(SOLVER_VERSION_MINOR 1)
+set(SOLVER_VERSION_PATCH 0)
+set(SOLVER_VERSION_TWEAK 0)
+set(SOLVER_VERSION
+    ${SOLVER_VERSION_MAJOR}.${SOLVER_VERSION_MINOR}.${SOLVER_VERSION_PATCH}.${SOLVER_VERSION_TWEAK})
+set(SOLVER_VERSION_STRING "v${SOLVER_VERSION}")
+
+option(INSTALL_FORMATTER "Install libformatter" OFF)
+option(INSTALL_FORMATTER_EX "Install libformatter_ex" OFF)
+option(INSTALL_HELLOWORLD "Install hello_world" OFF)
+option(INSTALL_LIBSOLVER "Install libsolver" OFF)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hello_world_application)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/solver_application)
+
+include(CPackConfig.cmake)
+```
+
+CMakeLists.txt в директории solver_application/   :
+```sh
+$ cat solver_application/CMakeLists.txt
+cmake_minimum_required(VERSION 3.4)
+
+set(CMAKE_CXX_STANDART 11)
+set(CMAKE_CXX_STANDART_REQUIRED ON)
+
+include(${CMAKE_CURRENT_LIST_DIR}/../formatter_ex_lib/CMakeLists.txt)
+
+# specify rule for solver_lib
+
+add_library(libsolver STATIC ${CMAKE_CURRENT_LIST_DIR}/../solver_lib/solver.cpp)
+
+include_directories(${CMAKE_CURRENT_LIST_DIR}/../solver_lib)
+
+
+add_executable(solver ${CMAKE_CURRENT_LIST_DIR}/equation.cpp)
+
+target_link_libraries(solver formatter_ex libsolver)
+
+if(INSTALL_LIBSOLVER)
+    install(TARGETS libsolver 
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
+endif(INSTALL_LIBSOLVER)
+
+if (WIN32)
+    install(TARGETS solver
+        RUNTIME DESTINATION Release
+    )
+else()
+    install(TARGETS solver 
+        RUNTIME DESTINATION bin
+    )
+endif()
+```
+
+Текст файла travis.yml
+```sh
+os:
+    - linux
+    - osx
+
+language: cpp
+compiler:
+    - clang
+    - gcc
+
+git:
+    depth: 1
+
+tags: true
+
+sudo: true
+
+addons:
+    apt:
+        - cmake
+        - cmake-data
+        - rpm
+
+script:
+    - cmake -H. -Bbuild -DCMAKE_INSTALL_PREFIX=install
+    - cmake --build build/
+    - cd build/
+    - cpack --config CPackSourceConfig.cmake
+    - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then cpack -G DragNDrop; fi
+    - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then cpack -G RPM; cpack -G DEB; fi
+    - cd ..
+
+deploy:
+    provider: releases
+    api_key: ####################################
+    file_glob: true
+    file:
+        - "install/packages/*.deb"
+        - "install/packages/*.rpm"
+        - "install/packages/*.dmg"
+        - "install/packages/*.tar.gz"
+        - "install/packages/*.zip"
+    skip_cleanup: true
+    on:
+        tags: true
+```
+
+Измененный .appveyor.yml:
+```sh
+image: Visual Studio 2022
+
+platform:
+    - x86
+    - x64
+
+configuration: Release
+build:
+    parallel: true
+
+build_script:
+    - cmake -H. -Bbuild -DCMAKE_INSTALL_PREFIX=install
+    - cmake --build build
+    - cmake --build build --target install
+    - cmake -H. -Bbuild -DCPACK_GENERATOR=WIX 
+    - cmake --build build --target package
+
+artifacts:
+    - path: install\packages\*.msi
+      name: solver
+
+deploy:
+    description: 'Some minor fixes'
+    provider: GitHub
+    auth_token:
+        secure: ################################
+    draft: false
+    prerelease: false
+    on:
+        APPVEYOR_REPO_TAG: true
+```
+
