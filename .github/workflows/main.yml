@@ -1,0 +1,61 @@
+name: Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*'  # Более специфичный фильтр для версионных тегов
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package_type: [deb, rpm]  # Добавьте wix, dmg и другие по необходимости
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Для корректной работы с тегами
+        
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'gradle'
+        
+    - name: Build and create packages
+      run: |
+        ./gradlew build
+        ./gradlew create${matrix.package_type}  # Динамическое выполнение задач
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.package_type }}-package
+        path: build/distributions/*.${{ matrix.package_type }}
+        
+  create-release:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Требуются права на создание релиза
+      
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+        
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: "Release ${{ github.ref_name }}"
+        files: artifacts/**/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
