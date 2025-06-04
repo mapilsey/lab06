@@ -3,7 +3,7 @@ name: Release Packages
 on:
   push:
     tags:
-      - 'v*'  # Фильтр для тегов, начинающихся с 'v'
+      - 'v*'
 
 jobs:
   build-packages:
@@ -15,17 +15,30 @@ jobs:
             ext: deb
           - type: RPM
             ext: rpm
-          # Добавьте другие типы пакетов при необходимости:
-          # - type: TGZ
-          #   ext: tar.gz
-          # - type: ZIP
-          #   ext: zip
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Verify license file exists
+      id: check-license
+      run: |
+        if [ ! -f "LICENSE.txt" ]; then
+          echo "license_file=created" >> $GITHUB_OUTPUT
+          echo "Generating MIT license file"
+          echo "MIT License" > LICENSE.txt
+          echo "Copyright (c) $(date +%Y) Your Name" >> LICENSE.txt
+          echo "" >> LICENSE.txt
+          echo "Permission is hereby granted..." >> LICENSE.txt
+        else
+          echo "license_file=existing" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create README if missing
+      if: ${{ !fileExists('README.md') }}
+      run: echo "# Project" > README.md
 
     - name: Install build dependencies
       run: |
@@ -44,13 +57,14 @@ jobs:
         echo "minor=$(echo $VERSION | cut -d. -f2)" >> $GITHUB_OUTPUT
         echo "patch=$(echo $VERSION | cut -d. -f3)" >> $GITHUB_OUTPUT
 
-    - name: Configure CMake with version
+    - name: Configure CMake
       run: |
         cmake -B build \
           -DPRINT_VERSION_MAJOR=${{ steps.version.outputs.major }} \
           -DPRINT_VERSION_MINOR=${{ steps.version.outputs.minor }} \
           -DPRINT_VERSION_PATCH=${{ steps.version.outputs.patch }} \
-          -DCPACK_GENERATOR=${{ matrix.package.type }}
+          -DCPACK_PACKAGE_DESCRIPTION_FILE="${GITHUB_WORKSPACE}/README.md" \
+          -DCPACK_RESOURCE_FILE_LICENSE="${GITHUB_WORKSPACE}/LICENSE.txt"
 
     - name: Build project
       run: cmake --build build --config Release
@@ -58,8 +72,11 @@ jobs:
     - name: Generate package
       run: |
         cd build
-        cpack -G ${{ matrix.package.type }}
+        cpack -G ${{ matrix.package.type }} --config CPackConfig.cmake
         cd ..
+
+    - name: Verify package creation
+      run: ls -la build/*.${{ matrix.package.ext }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
