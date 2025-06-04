@@ -10,32 +10,54 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package_type: [deb, rpm]  # Добавьте другие типы пакетов при необходимости
-    
+        package_type: [DEB, RPM]  # Добавьте TGZ, ZIP, NSIS и др. по необходимости
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  # Обновлено до v4
+      uses: actions/checkout@v4
       with:
-        fetch-depth: 0
-        
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4  # Обновлено до v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: 'gradle'
-        
-    - name: Build and create packages
+        fetch-depth: 0  # Для корректной работы с тегами
+
+    - name: Install build dependencies
       run: |
-        ./gradlew build
-        ./gradlew create${matrix.package_type}
-        
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+        if [ "${{ matrix.package_type }}" = "RPM" ]; then
+          sudo apt-get install -y rpm
+        fi
+
+    - name: Parse version from tag
+      id: version
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "major=${VERSION%%.*}" >> $GITHUB_OUTPUT
+        echo "minor=$(echo $VERSION | cut -d. -f2)" >> $GITHUB_OUTPUT
+        echo "patch=$(echo $VERSION | cut -d. -f3)" >> $GITHUB_OUTPUT
+
+    - name: Configure CMake with version
+      run: |
+        cmake -B build \
+          -DPRINT_VERSION_MAJOR=${{ steps.version.outputs.major }} \
+          -DPRINT_VERSION_MINOR=${{ steps.version.outputs.minor }} \
+          -DPRINT_VERSION_PATCH=${{ steps.version.outputs.patch }} \
+          -DCPACK_GENERATOR=${{ matrix.package_type }}
+
+    - name: Build project
+      run: cmake --build build --config Release
+
+    - name: Generate package
+      run: |
+        cd build
+        cpack -G ${{ matrix.package_type }}
+        cd ..
+
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4  # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: v3 → v4
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.package_type }}-package
-        path: build/distributions/*.${{ matrix.package_type }}
-        
+        path: build/*.${{ matrix.package_type | lower }}
+
   create-release:
     needs: build-packages
     runs-on: ubuntu-latest
@@ -44,12 +66,12 @@ jobs:
       
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v4  # Обновлено до v4
+      uses: actions/download-artifact@v4
       with:
         path: artifacts
         
     - name: Create Release
-      uses: softprops/action-gh-release@v2  # Обновлено до v2
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
         name: "Release ${{ github.ref_name }}"
