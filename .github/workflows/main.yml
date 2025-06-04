@@ -10,19 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package_type: [DEB, RPM]  # Добавьте TGZ, ZIP, NSIS и др. по необходимости
+        package: 
+          - type: DEB
+            ext: deb
+          - type: RPM
+            ext: rpm
+          # Добавьте другие типы пакетов при необходимости:
+          # - type: TGZ
+          #   ext: tar.gz
+          # - type: ZIP
+          #   ext: zip
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Для корректной работы с тегами
+        fetch-depth: 0
 
     - name: Install build dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
-        if [ "${{ matrix.package_type }}" = "RPM" ]; then
+        if [ "${{ matrix.package.type }}" = "RPM" ]; then
           sudo apt-get install -y rpm
         fi
 
@@ -41,7 +50,7 @@ jobs:
           -DPRINT_VERSION_MAJOR=${{ steps.version.outputs.major }} \
           -DPRINT_VERSION_MINOR=${{ steps.version.outputs.minor }} \
           -DPRINT_VERSION_PATCH=${{ steps.version.outputs.patch }} \
-          -DCPACK_GENERATOR=${{ matrix.package_type }}
+          -DCPACK_GENERATOR=${{ matrix.package.type }}
 
     - name: Build project
       run: cmake --build build --config Release
@@ -49,14 +58,14 @@ jobs:
     - name: Generate package
       run: |
         cd build
-        cpack -G ${{ matrix.package_type }}
+        cpack -G ${{ matrix.package.type }}
         cd ..
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.package_type }}-package
-        path: build/*.${{ matrix.package_type | lower }}
+        name: ${{ matrix.package.type }}-package
+        path: build/*.${{ matrix.package.ext }}
 
   create-release:
     needs: build-packages
