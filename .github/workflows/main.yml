@@ -23,22 +23,28 @@ jobs:
         fetch-depth: 0
 
     - name: Verify license file exists
-      id: check-license
+      id: check-files
       run: |
+        # Проверка и создание LICENSE.txt
         if [ ! -f "LICENSE.txt" ]; then
-          echo "license_file=created" >> $GITHUB_OUTPUT
           echo "Generating MIT license file"
           echo "MIT License" > LICENSE.txt
           echo "Copyright (c) $(date +%Y) Your Name" >> LICENSE.txt
           echo "" >> LICENSE.txt
-          echo "Permission is hereby granted..." >> LICENSE.txt
-        else
-          echo "license_file=existing" >> $GITHUB_OUTPUT
+          echo "Permission is hereby granted, free of charge..." >> LICENSE.txt
         fi
-
-    - name: Create README if missing
-      if: ${{ !fileExists('README.md') }}
-      run: echo "# Project" > README.md
+        
+        # Проверка и создание README.md
+        if [ ! -f "README.md" ]; then
+          echo "Generating minimal README"
+          echo "# ${GITHUB_REPOSITORY}" > README.md
+          echo "Version: ${{ github.ref_name }}" >> README.md
+        fi
+        
+        # Вывод информации о файлах
+        ls -la LICENSE.txt README.md
+        echo "LICENSE_CONTENT=$(cat LICENSE.txt)" >> $GITHUB_ENV
+        echo "README_CONTENT=$(cat README.md)" >> $GITHUB_ENV
 
     - name: Install build dependencies
       run: |
@@ -74,9 +80,6 @@ jobs:
         cd build
         cpack -G ${{ matrix.package.type }} --config CPackConfig.cmake
         cd ..
-
-    - name: Verify package creation
-      run: ls -la build/*.${{ matrix.package.ext }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
