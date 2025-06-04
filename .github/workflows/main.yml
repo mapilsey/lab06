@@ -3,7 +3,7 @@ name: Release Packages
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Запуск при создании тегов формата vX.Y.Z
 
 jobs:
   build-packages:
@@ -20,36 +20,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
-
-    - name: Verify license file exists
-      id: check-files
-      run: |
-        # Проверка и создание LICENSE.txt
-        if [ ! -f "LICENSE.txt" ]; then
-          echo "Generating MIT license file"
-          echo "MIT License" > LICENSE.txt
-          echo "Copyright (c) $(date +%Y) Your Name" >> LICENSE.txt
-          echo "" >> LICENSE.txt
-          echo "Permission is hereby granted, free of charge..." >> LICENSE.txt
-        fi
-        
-        # Проверка и создание README.md
-        if [ ! -f "README.md" ]; then
-          echo "Generating minimal README"
-          echo "# ${GITHUB_REPOSITORY}" > README.md
-          echo "Version: ${{ github.ref_name }}" >> README.md
-        fi
-        
-        # Вывод информации о файлах
-        ls -la LICENSE.txt README.md
-        echo "LICENSE_CONTENT=$(cat LICENSE.txt)" >> $GITHUB_ENV
-        echo "README_CONTENT=$(cat README.md)" >> $GITHUB_ENV
+        fetch-depth: 0  # Полная история для работы с тегами
 
     - name: Install build dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
+        # Для RPM нужны дополнительные пакеты
         if [ "${{ matrix.package.type }}" = "RPM" ]; then
           sudo apt-get install -y rpm
         fi
@@ -69,8 +46,8 @@ jobs:
           -DPRINT_VERSION_MAJOR=${{ steps.version.outputs.major }} \
           -DPRINT_VERSION_MINOR=${{ steps.version.outputs.minor }} \
           -DPRINT_VERSION_PATCH=${{ steps.version.outputs.patch }} \
-          -DCPACK_PACKAGE_DESCRIPTION_FILE="${GITHUB_WORKSPACE}/README.md" \
-          -DCPACK_RESOURCE_FILE_LICENSE="${GITHUB_WORKSPACE}/LICENSE.txt"
+          -DCPACK_PACKAGE_DESCRIPTION_FILE="$GITHUB_WORKSPACE/README.md" \
+          -DCPACK_RESOURCE_FILE_LICENSE="$GITHUB_WORKSPACE/LICENSE.txt"
 
     - name: Build project
       run: cmake --build build --config Release
@@ -80,6 +57,11 @@ jobs:
         cd build
         cpack -G ${{ matrix.package.type }} --config CPackConfig.cmake
         cd ..
+        
+    - name: Verify package creation
+      run: |
+        echo "Generated packages:"
+        ls -la build/*.${{ matrix.package.ext }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -91,13 +73,15 @@ jobs:
     needs: build-packages
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Требуется для создания релиза
       
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
+        pattern: '*-package'
+        merge-multiple: true
         
     - name: Create Release
       uses: softprops/action-gh-release@v2
