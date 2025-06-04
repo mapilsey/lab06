@@ -50,5 +50,15 @@ if(BUILD_TESTS)
   target_link_libraries(check ${PROJECT_NAME} gtest_main)
   add_test(NAME check COMMAND check)
 endif()
+# Настройки CPack
+include(InstallRequiredSystemLibraries)
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VERSION "${PRINT_VERSION}")
+set(CPACK_PACKAGE_CONTACT "mapilsey@gmail.com>")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+set(CPACK_RPM_PACKAGE_REQUIRES "")
 
-include(CPackConfig.cmake)
+# Включить CPack после всех настроек
+include(CPack)
